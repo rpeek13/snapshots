@@ -12,4 +12,7 @@ snapshots uses the configuration file created by the AWS cli. e.g.
 
 ## Running
 
-`pipenv run python snapshots/snapshots.py`
+`pipenv run python snapshots/snapshots.py <command> <--project=PROJECT>`
+
+*command* is list, start or stop_instances
+*project* is optional
