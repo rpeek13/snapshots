@@ -142,7 +142,9 @@ def snapshots():
     help="Only snapshots for instances in project (tag Project:<name>)")
 @click.option('--instance', default=None,
     help="Only snapshots for a specific instance (use instance ID)")
-def list_snapshots(project, instance):
+@click.option('--all', 'list_all', default=False, is_flag=True,
+    help="List all snapshots for each volume, not just the most recent")
+def list_snapshots(project, instance, list_all):
     "List EC2 volume snapshots"
     if instance:
         ids = [instance]
@@ -157,6 +159,8 @@ def list_snapshots(project, instance):
                         s.state,
                         s.progress,
                         s.start_time.strftime("%c"))))
+
+                    if s.state == 'completed' and not list_all: break
 
         return
 
@@ -173,6 +177,7 @@ def list_snapshots(project, instance):
                     s.progress,
                     s.start_time.strftime("%c"))))
 
+                if s.state == 'completed' and not list_all: break
     return
 
 if __name__ == '__main__':
