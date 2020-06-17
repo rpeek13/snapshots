@@ -12,6 +12,7 @@ setup(
     install_requires=[
         'click',
         'boto3'
+        'datetime'
     ],
     entry_points='''
         [console_scripts]

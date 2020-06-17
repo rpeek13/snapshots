@@ -1,6 +1,7 @@
 import boto3
 import botocore
 import click
+from datetime import datetime, timezone
 
 session = boto3.Session(profile_name='snapshots')
 ec2 = session.resource('ec2')
@@ -17,6 +18,15 @@ def filter_instances(instances, instance, project):
 def has_pending_snapshot(volume):
     snapshots = list(volume.snapshots.all())
     return snapshots and snapshots[0].state == 'pending'
+
+def is_snapshot_new(volume, age):
+    if not age: return true
+    current_time = datetime.now(timezone.utc)
+    for s in volume.snapshots.all():
+        difference = current_time - s.start_time
+        return difference.days < int(age)
+
+
 
 @click.group()
 @click.option('--profile', default='snapshots',
@@ -106,28 +116,33 @@ def reboot_instances(project, instance):
     help="Only instances for project (tag Project:<name>)")
 @click.option('--instance', default=None,
     help="Only create snapshot for a specific instance (use instance ID)")
-def create_snapshots(project, instance):
+@click.option('--age', default=None,
+    help="Only create snapshot if last snapshot is older than <age> days")
+def create_snapshots(project, instance, age):
     "Create snapshots of ec2 instance volumes"
     instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
-        print("Stopping {0}...".format(i.id))
-
-        i.stop()
-        i.wait_until_stopped()
-
         for v in i.volumes.all():
             if has_pending_snapshot(v):
                 print(" Skipping {0}, snapshot already in progress".format(v.id))
                 continue
+            if is_snapshot_new(v, age):
+                print(" Skipping {0} for {1}, snapshot is newer than {2} days".format(v.id, i.id, age))
+                continue
+
+            print("Stopping {0}...".format(i.id))
+
+            i.stop()
+            i.wait_until_stopped()
 
             print("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Created by Snapshots script")
 
-        print("Starting {0}...".format(i.id))
+            print("Starting {0}...".format(i.id))
 
-        i.start()
-        i.wait_until_running()
+            i.start()
+            i.wait_until_running()
 
     print("Job's done!")
 
