@@ -5,8 +5,10 @@ import click
 session = boto3.Session(profile_name='snapshots')
 ec2 = session.resource('ec2')
 
-def filter_instances(instances, project):
-    if project:
+def filter_instances(instances, instance, project):
+    if instance:
+        instances = instances.filter(InstanceIds=[instance])
+    elif project:
         filters = [{'Name':'tag:Project', 'Values':[project]}]
         instances = instances.filter(Filters=filters)
 
@@ -27,9 +29,11 @@ def instances():
 @instances.command('start')
 @click.option('--project', default=None,
     help="Only instances for project (tag Project:<name>)")
-def start_instances(project):
+@click.option('--instance', default=None,
+    help="Only start a specific instance (use instance ID)")
+def start_instances(project, instance):
     "Start EC2 instances"
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
         print("Starting {0}...".format(i.id))
@@ -42,9 +46,11 @@ def start_instances(project):
 @instances.command('stop')
 @click.option('--project', default=None,
     help="Only instances for project (tag Project:<name>)")
-def stop_instances(project):
+@click.option('--instance', default=None,
+    help="Only stop a specific instance (use instance ID)")
+def stop_instances(project, instance):
     "Stop EC2 instances"
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
         print("Stopping {0}...".format(i.id))
@@ -57,9 +63,11 @@ def stop_instances(project):
 @instances.command('snapshot')
 @click.option('--project', default=None,
     help="Only instances for project (tag Project:<name>)")
-def create_snapshots(project):
+@click.option('--instance', default=None,
+    help="Only create snapshot for a specific instance (use instance ID)")
+def create_snapshots(project, instance):
     "Create snapshots of ec2 instance volumes"
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
         print("Stopping {0}...".format(i.id))
@@ -71,7 +79,7 @@ def create_snapshots(project):
             if has_pending_snapshot(v):
                 print(" Skipping {0}, snapshot already in progress".format(v.id))
                 continue
-                
+
             print("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Created by Snapshots script")
 
@@ -87,9 +95,11 @@ def create_snapshots(project):
 @instances.command('list')
 @click.option('--project', default=None,
     help="Only instances for project (tag Project:<name>)")
-def list_instances(project):
+@click.option('--instance', default=None,
+    help="Only list information for a specific instance (use instance ID)")
+def list_instances(project, instance):
     "List EC2 instances"
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
         tags = { t['Key']: t['Value'] for t in i.tags or [] }
@@ -114,21 +124,7 @@ def volumes():
     help="Only volumes for a specific instance (use instance ID)")
 def list_volumes(project, instance):
     "List EC2 volumes"
-    if instance:
-        ids = [instance]
-        instances = ec2.instances.filter(InstanceIds=ids)
-        for i in instances:
-            for v in i.volumes.all():
-                print(', '.join((
-                    v.id,
-                    i.id,
-                    v.state,
-                    str(v.size) + "GiB",
-                    v.encrypted and "Encrypted" or "Not Encrypted")))
-
-        return
-
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(),instance, project)
 
     for i in instances:
         for v in i.volumes.all():
@@ -154,25 +150,7 @@ def snapshots():
     help="List all snapshots for each volume, not just the most recent")
 def list_snapshots(project, instance, list_all):
     "List EC2 volume snapshots"
-    if instance:
-        ids = [instance]
-        instances = ec2.instances.filter(InstanceIds=ids)
-        for i in instances:
-            for v in i.volumes.all():
-                for s in v.snapshots.all():
-                    print(', '.join((
-                        s.id,
-                        v.id,
-                        i.id,
-                        s.state,
-                        s.progress,
-                        s.start_time.strftime("%c"))))
-
-                    if s.state == 'completed' and not list_all: break
-
-        return
-
-    instances = filter_instances(ec2.instances.all(), project)
+    instances = filter_instances(ec2.instances.all(), instance, project)
 
     for i in instances:
         for v in i.volumes.all():
