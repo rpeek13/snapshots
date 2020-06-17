@@ -19,8 +19,12 @@ def has_pending_snapshot(volume):
     return snapshots and snapshots[0].state == 'pending'
 
 @click.group()
-def cli():
+@click.option('--profile', default='snapshots',
+    help="Start the CLI using an AWS profile passed in this option.")
+def cli(profile):
     """Snapshots manages EC2 snapshots"""
+    session = boto3.Session(profile_name=profile)
+    ec2 = session.resource('ec2')
 
 @cli.group('instances')
 def instances():
@@ -204,4 +208,4 @@ def list_snapshots(project, instance, list_all):
     return
 
 if __name__ == '__main__':
-    cli()
+    cli(None)
