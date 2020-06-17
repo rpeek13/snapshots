@@ -60,6 +60,43 @@ def stop_instances(project, instance):
             print("Could not stop {0}. ".format(i.id) + str(e))
             continue
 
+@instances.command('reboot')
+@click.option('--project', default=None,
+    help="Only instances for project (tag Project:<name>)")
+@click.option('--instance', default=None,
+    help="Only reboot a specific instance (use instance ID)")
+def reboot_instances(project, instance):
+    "Reboot EC2 instances"
+    instances = filter_instances(ec2.instances.all(), instance, project)
+
+    for i in instances:
+        print("Stopping {0}...".format(i.id))
+        try:
+            i.stop()
+        except botocore.exceptions.ClientError as e:
+            print("Could not stop {0}. ".format(i.id) + str(e))
+            continue
+
+    for i in instances:
+        i.wait_until_stopped()
+        print("Stopped {0} successfully.".format(i.id))
+
+    for i in instances:
+        print("Restarting {0}...".format(i.id))
+        try:
+            i.start()
+        except botocore.exceptions.ClientError as e:
+            print("Could not start {0}. ".format(i.id) + str(e))
+            continue
+
+    for i in instances:
+        i.wait_until_running()
+        print("Started {0} successfully.".format(i.id))
+
+    print("Rebooting complete!")
+
+    return
+
 @instances.command('snapshot')
 @click.option('--project', default=None,
     help="Only instances for project (tag Project:<name>)")
